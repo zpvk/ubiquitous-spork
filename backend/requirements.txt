@@ -3,5 +3,10 @@ uvicorn[standard]
 SQLAlchemy
 alembic
 pydantic
-websocket
-pydantic_settings
+websockets
+pydantic-settings
+pytest
+pytest-asyncio
+httpx
+python-dotenv
+greenlet
