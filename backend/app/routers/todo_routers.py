@@ -30,3 +30,32 @@ async def create_task(
     serializable_event = jsonable_encoder(event)
     background.add_task(manager.broadcast, serializable_event)
     return todo
+
+@router.put("/{task_id}/claim", response_model=TodoResponse)
+async def claim_task(
+    task_id: int,
+    payload: TodoClaim,
+    background: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
+    todo = TodoService.claim_task(db, task_id, payload)
+    if not todo:
+        raise HTTPException(404, "Not found or already claimed")
+    event = {
+        "type": "task_updated",
+        "task": TodoResponse.from_orm(todo).dict()
+    }
+    serializable_event = jsonable_encoder(event)
+    background.add_task(manager.broadcast, serializable_event)
+    return todo
+
+@router.get("/search", response_model=List[TodoResponse], summary="Search tasks by title")
+def search_tasks(
+    title: str,
+    db: Session = Depends(get_db),
+):
+    results = TodoService.search_tasks_by_title(db, title)
+    if not results:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail=f"No tasks found matching '{title}'")
+    return results
