@@ -1,9 +1,10 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from models.todo import Base
+from core.config import settings
 
 # SQLite database URL
-SQLALCHEMY_DATABASE_URL = "sqlite:///./todos.db"
+SQLALCHEMY_DATABASE_URL = settings.database_url
 
 # Create engine
 engine = create_engine(
