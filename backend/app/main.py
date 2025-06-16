@@ -3,7 +3,6 @@ from fastapi import logger
 from pydantic import BaseModel
 from datetime import datetime
 from fastapi.middleware.cors import CORSMiddleware
-from core.ConnectionManager import ConnectionManager
 from routers.ws_route import router_ws
 from routers.todo_routers import router
 
