@@ -5,6 +5,7 @@ from datetime import datetime
 from fastapi.middleware.cors import CORSMiddleware
 from core.ConnectionManager import ConnectionManager
 from routers.ws_route import router_ws
+from routers.todo_routers import router
 
 app = FastAPI()
 
@@ -19,6 +20,9 @@ app.add_middleware(
 
 
 app = FastAPI(title="Todo App")
+
+# mount REST endpoints under /tasks
+app.include_router(router)
 
 # mount WebSocket endpoint at /ws/tasks
 app.include_router(router_ws)
