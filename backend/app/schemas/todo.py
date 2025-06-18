@@ -1,16 +1,16 @@
 # app/schemas/todo.py
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional
 from datetime import datetime
 from models.todo import TaskStatus
 
 class TodoCreate(BaseModel):
-    title: str
-    description: Optional[str] = None
-    assignee: Optional[str] = None
+    title: str = Field(..., min_length=1, max_length=255)
+    description: Optional[str] = Field(None, max_length=500)
+    assignee: Optional[str] = Field(None, max_length=100)
 
 class TodoClaim(BaseModel):
-    assignee: str
+    assignee: str = Field(..., min_length=1, max_length=100)
     status: TaskStatus = TaskStatus.INPROGRESS
 
 class TodoResponse(BaseModel):
