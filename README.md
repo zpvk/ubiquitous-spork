@@ -62,6 +62,8 @@ The frontend is built with:
 ### Backend Setup
 
 ```bash
+clone repo
+cd ubiquitous-spork
 cd backend
 python -m venv todoo
 source todoo/bin/activate  # On Windows: todoon\Scripts\activate
@@ -116,4 +118,4 @@ MIT
 
 ## Contributors
 
-- [Your Name](https://github.com/zvpk)
+- [Rohan K](https://github.com/zpvk)
