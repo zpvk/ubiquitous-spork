@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.exceptions import RequestValidationError
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
@@ -10,7 +10,17 @@ import os
 import time
 from collections import defaultdict
 
-app = FastAPI(title="Todo App")
+current_env = os.getenv("ENV", "development")
+print(f"Current environment: {current_env}")
+
+app = FastAPI(
+    title="Todo App",
+    # Ensure Swagger UI is always available for debugging
+    docs_url="/docs",
+    redoc_url="/redoc",
+    # Handle trailing slashes automatically - redirect /path/ to /path and vice versa
+    redirect_slashes=True,
+)
 
 # --- Security Headers Middleware ---
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -20,7 +30,14 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "same-origin"
         response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains; preload"
-        response.headers["Content-Security-Policy"] = "default-src 'self'"
+        
+        # Modified CSP to allow Swagger UI to work correctly
+        if request.url.path in ["/docs", "/docs/", "/redoc", "/redoc/", "/openapi.json"]:
+            # Allow everything needed for Swagger UI and ReDoc
+            response.headers["Content-Security-Policy"] = "default-src 'self'; img-src 'self' data:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self'; font-src 'self' data:;"
+        else:
+            # Strict CSP for regular API routes
+            response.headers["Content-Security-Policy"] = "default-src 'self'"
         return response
 
 app.add_middleware(SecurityHeadersMiddleware)
@@ -63,8 +80,8 @@ else:
         allow_headers=["*"],
     )
 
-# mount REST endpoints under /tasks
-app.include_router(router)
+# mount REST endpoints at root level (task routes defined in the router)
+app.include_router(router, prefix="/tasks")
 
 # mount WebSocket endpoint at /ws/tasks
 app.include_router(router_ws)
@@ -85,6 +102,12 @@ async def http_exception_handler(request: Request, exc: HTTPException):
 # Catch-all route handler for unknown endpoints - must be last
 @app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"])
 async def catch_all(request: Request, path: str):
+    # Handle search URLs with trailing slash specifically
+    if request.url.path == "/tasks/search/" and "title" in request.query_params:
+        # Redirect to the correct URL without trailing slash
+        corrected_url = f"/tasks/search?{request.url.query}"
+        return RedirectResponse(url=corrected_url)
+    
     raise HTTPException(status_code=404, detail=f"Endpoint not found: {request.method} {request.url.path}")
 
 if __name__ == "__main__":

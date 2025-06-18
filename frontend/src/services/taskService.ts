@@ -1,6 +1,7 @@
 import type { Task } from '../types/task';
 
-const API_BASE = '/api';
+// Direct connection to backend at port 8000, no proxy
+const API_BASE = 'http://localhost:8000/tasks';
 
 interface CreateTaskData {
   title: string;
@@ -68,6 +69,14 @@ export class TaskService {
     };
   }
   
+  // Common headers for all requests
+  private static getCommonHeaders() {
+    return {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    };
+  }
+  
   // Enhanced error handling for fetch requests
   private static async handleResponse<T>(response: Response): Promise<T> {
     if (!response.ok) {
@@ -89,7 +98,9 @@ export class TaskService {
   // Get all tasks
   static async getAllTasks(): Promise<Task[]> {
     try {
-      const response = await fetch(`${API_BASE}/tasks/`);
+      const response = await fetch(`${API_BASE}/`, {
+        headers: this.getCommonHeaders(),
+      });
       return await this.handleResponse<Task[]>(response);
     } catch (error) {
       console.error('Failed to fetch tasks:', error);
@@ -109,9 +120,9 @@ export class TaskService {
     const sanitizedData = this.sanitizeTaskInput(data);
     
     try {
-      const response = await fetch(`${API_BASE}/tasks/`, {
+      const response = await fetch(`${API_BASE}/`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: this.getCommonHeaders(),
         body: JSON.stringify(sanitizedData)
       });
       
@@ -136,9 +147,9 @@ export class TaskService {
     }
     
     try {
-      const response = await fetch(`${API_BASE}/tasks/${encodeURIComponent(taskId)}/claim`, {
+      const response = await fetch(`${API_BASE}/${encodeURIComponent(taskId)}/claim`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: this.getCommonHeaders(),
         body: JSON.stringify({ assignee: data.assignee.trim() })
       });
       
@@ -156,15 +167,25 @@ export class TaskService {
       return [];
     }
     
+    // Minimum search length check
+    if (title.trim().length < 2) {
+      return []; // Return empty for too short queries
+    }
+    
     if (title.length > 100) {
       throw new Error('Search query too long');
     }
     
     try {
-      const response = await fetch(`${API_BASE}/tasks/search/?title=${encodeURIComponent(title.trim())}`);
+      // Remove trailing slash to match the registered route
+      const response = await fetch(`${API_BASE}/search?title=${encodeURIComponent(title.trim())}`, {
+        headers: this.getCommonHeaders(),
+      });
       
-      if (response.status === 404) {
-        return []; // Return empty array if no tasks found
+      // Improved error handling - backend now returns empty array instead of 404
+      if (!response.ok) {
+        console.error('Search request failed:', response.status, response.statusText);
+        return []; // Return empty array on any error
       }
       
       return await this.handleResponse<Task[]>(response);

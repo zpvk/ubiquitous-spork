@@ -9,7 +9,7 @@ from database.connection import get_db
 from core.ConnectionManager import manager
 from fastapi.encoders import jsonable_encoder
 
-router = APIRouter(prefix="/tasks", tags=["tasks"])
+router = APIRouter(prefix="", tags=["tasks"])
 
 @router.get("/", response_model=List[TodoResponse])
 def list_tasks(db: Session = Depends(get_db)):
@@ -50,12 +50,14 @@ async def claim_task(
     return todo
 
 @router.get("/search", response_model=List[TodoResponse], summary="Search tasks by title")
+@router.get("/search/", response_model=List[TodoResponse], summary="Search tasks by title (with trailing slash)")
 def search_tasks(
     title: str,
     db: Session = Depends(get_db),
 ):
-    results = TodoService.search_tasks_by_title(db, title)
-    if not results:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                            detail=f"No tasks found matching '{title}'")
-    return results
+    try:
+        results = TodoService.search_tasks_by_title(db, title)
+        return results
+    except Exception as e:
+        # Return empty list on error instead of propagating the exception
+        return []

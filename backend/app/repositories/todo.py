@@ -21,11 +21,7 @@ class TodoRepository:
         Returns all Todo rows whose title contains the `title` substring,
         case-insensitive.
         """
-        return (
-            db.query(Todo)
-              .filter(Todo.title.ilike(f"%{title}%"))
-              .all()
-        )
+        return db.query(Todo).filter(Todo.title.ilike(f"%{title}%")).all()
 
     @staticmethod
     def update_assignee_and_status(

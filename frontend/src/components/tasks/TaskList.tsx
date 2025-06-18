@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { 
   Box, 
   Typography, 
@@ -9,7 +9,8 @@ import {
   Chip, 
   Button,
   Tabs,
-  Tab
+  Tab,
+  CircularProgress
 } from '@mui/material';
 import { 
   Search as SearchIcon, 
@@ -20,6 +21,7 @@ import {
 import DOMPurify from 'dompurify';
 import type { Task } from '../../types/task';
 import { TaskDialog } from './TaskDialog';
+import { TaskService } from '../../services/taskService';
 
 interface Props {
   tasks: Task[];
@@ -30,9 +32,41 @@ export const TaskList = ({ tasks, onClaim }: Props) => {
   const [search, setSearch] = useState('');
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [currentTab, setCurrentTab] = useState(0);
+  const [searchResults, setSearchResults] = useState<Task[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [useBackendSearch, setUseBackendSearch] = useState(false);
 
-  // Filter tasks based on search (case insensitive)
-  const filteredTasks = tasks.filter(t => {
+  // useEffect to handle debounced search
+  useEffect(() => {
+    const debounceTimer = setTimeout(async () => {
+      // Require at least 2 characters for backend search
+      if (search.trim().length >= 2) {
+        setIsSearching(true);
+        setSearchError(null);
+        try {
+          const results = await TaskService.searchTasks(search);
+          setSearchResults(results);
+          setUseBackendSearch(true);
+        } catch (error) {
+          console.error('Search error:', error);
+          setSearchError('Failed to search tasks');
+          setSearchResults([]);
+        } finally {
+          setIsSearching(false);
+        }
+      } else {
+        setUseBackendSearch(false);
+        setSearchResults([]);
+        setSearchError(null);
+      }
+    }, 500); // 500ms debounce delay
+
+    return () => clearTimeout(debounceTimer);
+  }, [search]);
+
+  // Filter tasks based on search when not using backend search
+  const filteredTasks = useBackendSearch ? searchResults : tasks.filter(t => {
     const searchTerm = search.toLowerCase();
     return (
       t.title.toLowerCase().includes(searchTerm) ||
@@ -62,12 +96,15 @@ export const TaskList = ({ tasks, onClaim }: Props) => {
       {/* Search and Tabs */}
       <Stack spacing={2} sx={{ mb: 3 }}>
         <TextField
-          placeholder="Search tasks..."
+          placeholder="Search tasks... (min 2 characters)"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           size="small"
           fullWidth
+          error={!!searchError || (search.trim().length === 1)}
+          helperText={searchError || (search.trim().length === 1 ? "Enter at least 2 characters to search" : "")}
           InputProps={{
+            endAdornment: isSearching ? <CircularProgress size={20} /> : null,
             startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} />,
           }}
           inputProps={{ 
@@ -97,7 +134,12 @@ export const TaskList = ({ tasks, onClaim }: Props) => {
       {/* Task List */}
       {displayTasks.length === 0 ? (
         <Typography color="text.secondary" align="center" sx={{ mt: 4 }}>
-          No tasks found
+          {useBackendSearch && search.trim() 
+            ? `No tasks found matching "${search}"`
+            : tasks.length === 0 
+              ? "No tasks yet."
+              : "No tasks matching your filter"
+          }
         </Typography>
       ) : (
         <Stack spacing={1.5}>
