@@ -115,6 +115,9 @@ The WebSocket protocol has three message types:
 ## License
 
 MIT
+## Main Interface
+![Main Interface](https://github.com/user-attachments/assets/ff81632c-417f-430d-aa4a-12b3c7198dc9)
+
 
 ## Contributors
 
