@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import type { Task } from './types/task';
+import type { WebSocketMessageData } from './types/websocket';
 import { TaskList } from './components/tasks/TaskList';
 import CreateForm from './components/tasks/CreateForm';
 import { TaskService } from './services/taskService';
 import { WebSocketService } from './services/webSocketService';
+import ErrorMessage from './components/common/ErrorMessage';
 import { 
   ThemeProvider, 
   CssBaseline, 
@@ -26,24 +28,28 @@ function App() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [wsConnected, setWsConnected] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     // Set up WebSocket connection and message handling
     const ws = WebSocketService.getInstance();
     
-    const handleMessage = (msg: any) => {
-      switch (msg.type) {
-        case 'snapshot':
-          setTasks(msg.tasks);
-          break;
-        case 'task_created':
-          setTasks(prev => [msg.task, ...prev]);
-          break;
-        case 'task_updated':
-          setTasks(prev => prev.map(t => t.id === msg.task.id ? msg.task : t));
-          break;
-        default:
-          console.warn('❓ Unknown message type:', msg.type);
+    const handleMessage = (msg: WebSocketMessageData) => {
+      try {
+        switch (msg.type) {
+          case 'snapshot':
+            setTasks(msg.tasks);
+            break;
+          case 'task_created':
+            setTasks(prev => [msg.task, ...prev]);
+            break;
+          case 'task_updated':
+            setTasks(prev => prev.map(t => t.id === msg.task.id ? msg.task : t));
+            break;
+        }
+      } catch (err) {
+        console.error('Error handling WebSocket message:', err);
+        setErrorMessage('Error processing server update. Please refresh the page.');
       }
     };
 
@@ -62,13 +68,19 @@ function App() {
     };
   }, []);
 
+  // Clear error message
+  const clearError = useCallback(() => {
+    setErrorMessage(null);
+  }, []);
+
   // Create a new task
   const handleCreate = async (data: { title: string; description?: string; assignee?: string }) => {
     try {
       await TaskService.createTask(data);
+      // No need for success message as WebSocket will update the UI
     } catch (error) {
       console.error('Failed to create task:', error);
-      alert('Failed to create task. Please try again.');
+      setErrorMessage('Failed to create task. Please try again.');
     }
   };
 
@@ -76,9 +88,10 @@ function App() {
   const handleClaim = async (id: string, assignee: string) => {
     try {
       await TaskService.claimTask(id, { assignee });
+      // No need for success message as WebSocket will update the UI
     } catch (error) {
       console.error('Failed to claim task:', error);
-      alert('Failed to claim task. Please try again.');
+      setErrorMessage('Failed to claim task. Please try again.');
     }
   };
 
@@ -130,6 +143,12 @@ function App() {
         <TaskList 
           tasks={tasks} 
           onClaim={handleClaim}
+        />
+        
+        {/* Error Message Snackbar */}
+        <ErrorMessage 
+          message={errorMessage} 
+          onClose={clearError}
         />
       </Container>
     </ThemeProvider>

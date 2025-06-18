@@ -17,6 +17,7 @@ import {
   AccessTime as TimeIcon,
   Assignment as AssignmentIcon
 } from '@mui/icons-material';
+import DOMPurify from 'dompurify';
 import type { Task } from '../../types/task';
 import { TaskDialog } from './TaskDialog';
 
@@ -30,11 +31,14 @@ export const TaskList = ({ tasks, onClaim }: Props) => {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [currentTab, setCurrentTab] = useState(0);
 
-  // Filter tasks based on search
-  const filteredTasks = tasks.filter(t => 
-    (t.title.toLowerCase().includes(search.toLowerCase()) ||
-    t.description?.toLowerCase().includes(search.toLowerCase()))
-  );
+  // Filter tasks based on search (case insensitive)
+  const filteredTasks = tasks.filter(t => {
+    const searchTerm = search.toLowerCase();
+    return (
+      t.title.toLowerCase().includes(searchTerm) ||
+      (t.description && t.description.toLowerCase().includes(searchTerm))
+    );
+  });
 
   // Filter tasks by status
   const todoTasks = filteredTasks.filter(t => t.status === 'todo');
@@ -46,6 +50,11 @@ export const TaskList = ({ tasks, onClaim }: Props) => {
     if (currentTab === 0) {
       setSelectedTask(task);
     }
+  };
+
+  // Safe sanitization helper for displayed content
+  const sanitizeContent = (content: string): string => {
+    return DOMPurify.sanitize(content);
   };
 
   return (
@@ -60,6 +69,10 @@ export const TaskList = ({ tasks, onClaim }: Props) => {
           fullWidth
           InputProps={{
             startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} />,
+          }}
+          inputProps={{ 
+            maxLength: 50, 
+            'aria-label': 'Search tasks'
           }}
         />
         
@@ -101,10 +114,10 @@ export const TaskList = ({ tasks, onClaim }: Props) => {
               onClick={currentTab === 0 ? () => handleTaskClick(task) : undefined}
             >
               <CardContent sx={{ pb: '16px !important' }}>
-                {/* Task Header */}
+                {/* Task Header with sanitized content */}
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
                   <Typography variant="h6" sx={{ wordBreak: 'break-word', flex: 1, mr: currentTab === 0 ? 2 : 0 }}>
-                    {task.title}
+                    {sanitizeContent(task.title)}
                   </Typography>
                   {currentTab === 0 && (
                     <Button
@@ -121,7 +134,7 @@ export const TaskList = ({ tasks, onClaim }: Props) => {
                   )}
                 </Box>
                 
-                {/* Description Preview */}
+                {/* Description Preview with sanitized content */}
                 {task.description && (
                   <Typography 
                     color="text.secondary"
@@ -134,11 +147,11 @@ export const TaskList = ({ tasks, onClaim }: Props) => {
                       WebkitBoxOrient: 'vertical'
                     }}
                   >
-                    {task.description}
+                    {sanitizeContent(task.description)}
                   </Typography>
                 )}
 
-                {/* Metadata */}
+                {/* Metadata with sanitized content */}
                 <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
                   <Chip 
                     icon={<TimeIcon />} 
@@ -149,7 +162,7 @@ export const TaskList = ({ tasks, onClaim }: Props) => {
                   {task.assignee && (
                     <Chip 
                       icon={<PersonIcon />} 
-                      label={`Assigned: ${task.assignee}`}
+                      label={`Assigned: ${sanitizeContent(task.assignee)}`}
                       color="primary" 
                       size="small" 
                     />

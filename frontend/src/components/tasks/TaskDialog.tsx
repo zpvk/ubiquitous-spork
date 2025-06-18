@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -10,12 +10,14 @@ import {
   Typography,
   Box,
   Chip,
-  IconButton
+  IconButton,
+  FormHelperText
 } from '@mui/material';
 import { 
   Person as PersonIcon,
   Close as CloseIcon 
 } from '@mui/icons-material';
+import DOMPurify from 'dompurify';
 import type { Task } from '../../types/task';
 
 interface Props {
@@ -27,16 +29,65 @@ interface Props {
 
 export const TaskDialog = ({ task, open, onClose, onClaim }: Props) => {
   const [assignee, setAssignee] = useState('');
+  const [assigneeError, setAssigneeError] = useState('');
+  
+  // Reset state when dialog opens
+  useEffect(() => {
+    if (open) {
+      setAssignee('');
+      setAssigneeError('');
+    }
+  }, [open]);
 
   if (!task) return null;
+  
+  // Safely sanitized content for display
+  const safeTitle = task.title ? DOMPurify.sanitize(task.title) : '';
+  const safeDescription = task.description ? DOMPurify.sanitize(task.description) : '';
+  const safeAssignee = task.assignee ? DOMPurify.sanitize(task.assignee) : '';
 
   const handleClose = () => {
     setAssignee('');
+    setAssigneeError('');
     onClose();
   };
 
+  const validateAssignee = (value: string): boolean => {
+    const trimmed = value.trim();
+    
+    if (!trimmed) {
+      setAssigneeError('Name is required');
+      return false;
+    }
+    
+    if (trimmed.length > 100) {
+      setAssigneeError('Name must be less than 100 characters');
+      return false;
+    }
+    
+    // Check for valid characters (alphanumeric, spaces, and common name symbols)
+    const nameRegex = /^[a-zA-Z0-9\s\.\-']+$/;
+    if (!nameRegex.test(trimmed)) {
+      setAssigneeError('Name contains invalid characters');
+      return false;
+    }
+    
+    setAssigneeError('');
+    return true;
+  };
+
+  const handleAssigneeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setAssignee(value);
+    
+    // Clear error as user types, will validate again on submit
+    if (assigneeError) {
+      setAssigneeError('');
+    }
+  };
+
   const handleClaim = () => {
-    if (task && onClaim && assignee.trim()) {
+    if (task && onClaim && validateAssignee(assignee)) {
       onClaim(task.id, assignee.trim());
       handleClose();
     }
@@ -60,7 +111,8 @@ export const TaskDialog = ({ task, open, onClose, onClaim }: Props) => {
         pb: 0
       }}>
         <Typography variant="h6" component="span" sx={{ wordBreak: 'break-word', pr: 3 }}>
-          {task.title}
+          {/* Using sanitized content */}
+          <span dangerouslySetInnerHTML={{ __html: safeTitle }} />
         </Typography>
         <IconButton 
           onClick={handleClose}
@@ -78,7 +130,7 @@ export const TaskDialog = ({ task, open, onClose, onClaim }: Props) => {
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <Chip 
                 icon={<PersonIcon />}
-                label={`Currently assigned to ${task.assignee}`}
+                label={`Currently assigned to ${safeAssignee}`}
                 color="primary"
                 size="small"
               />
@@ -104,7 +156,8 @@ export const TaskDialog = ({ task, open, onClose, onClaim }: Props) => {
                   overflowY: 'auto'
                 }}
               >
-                {task.description}
+                {/* Using sanitized content */}
+                <span dangerouslySetInnerHTML={{ __html: safeDescription }} />
               </Typography>
             </Box>
           )}
@@ -127,10 +180,17 @@ export const TaskDialog = ({ task, open, onClose, onClaim }: Props) => {
             <TextField
               label="Enter your name"
               value={assignee}
-              onChange={(e) => setAssignee(e.target.value)}
+              onChange={handleAssigneeChange}
               fullWidth
               size="small"
               placeholder="Your name"
+              error={!!assigneeError}
+              helperText={assigneeError}
+              inputProps={{ 
+                maxLength: 100,
+                pattern: "[A-Za-z0-9 \\-'.]*",
+                title: "Enter a valid name"
+              }}
             />
           </Box>
         </Stack>
@@ -148,7 +208,7 @@ export const TaskDialog = ({ task, open, onClose, onClaim }: Props) => {
           onClick={handleClaim}
           variant="contained"
           size="large"
-          disabled={!assignee.trim()}
+          disabled={!assignee.trim() || !!assigneeError}
         >
           Claim Task
         </Button>
